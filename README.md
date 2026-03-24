@@ -2,7 +2,7 @@
 
 백그라운드에서 실행 중인 Claude Code 세션을 쉽게 관리할 수 있는 플러그인입니다.
 
-## 🎯 주요 기능
+## 주요 기능
 
 - 실행 중인 모든 Claude Code 세션 표시
 - 프로젝트별 세션 구분 및 상태 표시
@@ -11,7 +11,7 @@
 - 오래된 세션 자동 정리
 - 메모리 사용량 모니터링
 
-## 📦 설치 방법
+## 설치 방법
 
 ### 방법 1: 로컬 설치
 ```bash
@@ -31,7 +31,7 @@ claude plugin install .
 claude plugin install https://github.com/yourusername/claude-session-manager
 ```
 
-## 🚀 사용법
+## 사용법
 
 ### 플러그인 실행
 ```bash
@@ -64,7 +64,7 @@ claude plugin install https://github.com/yourusername/claude-session-manager
 /stats
 ```
 
-## 📊 화면 구성
+## 화면 구성
 
 ```
 ╔════════════════════════════════════════════════════════════════════════╗
@@ -87,7 +87,7 @@ claude plugin install https://github.com/yourusername/claude-session-manager
 - **Idle**: CPU 사용률 1-5% (대기 상태)
 - **Sleeping**: CPU 사용률 < 1% (휴면 상태)
 
-## ⚙️ 설정
+## 설정
 
 플러그인 설정은 `~/.claude/plugins/claude-session-manager/config.json`에서 변경할 수 있습니다:
 
@@ -100,13 +100,13 @@ claude plugin install https://github.com/yourusername/claude-session-manager
 }
 ```
 
-## 🛡️ 안전 기능
+## 안전 기능
 
 - 모든 종료 작업 전 확인 프롬프트
 - SIGTERM 우선 사용 (안전한 종료)
 - 실패 시에만 SIGKILL 사용
 
-## 🔧 문제 해결
+## 문제 해결
 
 ### 권한 오류
 ```bash
@@ -119,14 +119,14 @@ claude plugin list
 claude plugin reload
 ```
 
-## 📝 라이선스
+## 라이선스
 
 MIT License
 
-## 🤝 기여
+## 기여
 
 Issues와 Pull Requests를 환영합니다!
 
-## 📞 지원
+## 지원
 
 문제가 있으시면 Issues를 열어주세요.
