@@ -1,0 +1,38 @@
+{
+  "name": "claude-session-manager",
+  "version": "1.0.0",
+  "description": "Manage and clean up Claude Code background sessions",
+  "author": "Your Name",
+  "homepage": "https://github.com/yourusername/claude-session-manager",
+  "license": "MIT",
+  "main": "src/index.js",
+  "commands": [
+    {
+      "name": "session-manager",
+      "description": "Open Claude Code Session Manager",
+      "aliases": ["csm", "sessions"]
+    },
+    {
+      "name": "kill-sleeping",
+      "description": "Kill all sleeping Claude sessions (CPU < 1%)",
+      "aliases": ["ks"]
+    },
+    {
+      "name": "kill-old",
+      "description": "Kill sessions older than 24 hours",
+      "aliases": ["ko"]
+    },
+    {
+      "name": "session-stats",
+      "description": "Show session statistics",
+      "aliases": ["stats"]
+    }
+  ],
+  "permissions": [
+    "process",
+    "system"
+  ],
+  "engines": {
+    "claude": ">=2.0.0"
+  }
+}
