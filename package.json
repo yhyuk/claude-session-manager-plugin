@@ -1,0 +1,23 @@
+{
+  "name": "claude-session-manager",
+  "version": "1.0.0",
+  "description": "Manage Claude Code background sessions easily",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "claude",
+    "session",
+    "manager",
+    "process",
+    "cleanup"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "inquirer": "^9.2.12",
+    "cli-table3": "^0.6.3"
+  }
+}
