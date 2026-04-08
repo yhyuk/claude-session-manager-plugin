@@ -9,4 +9,5 @@ build/
 *~
 .idea/
 .vscode/
-*.iml
+*.iml.omc/
+.omc/
