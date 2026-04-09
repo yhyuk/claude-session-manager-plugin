@@ -2,8 +2,8 @@
   "name": "claude-session-manager",
   "version": "1.0.0",
   "description": "Manage and clean up Claude Code background sessions",
-  "author": "Your Name",
-  "homepage": "https://github.com/yourusername/claude-session-manager",
+  "author": "yhyuk",
+  "homepage": "https://github.com/yhyuk/claude-session-manager-plugin",
   "license": "MIT",
   "main": "src/index.js",
   "commands": [
