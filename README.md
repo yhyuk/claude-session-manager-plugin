@@ -1,49 +1,73 @@
 # Claude Session Manager Plugin
 
-백그라운드에서 실행 중인 Claude Code 세션을 한눈에 모니터링하고, 불필요한 세션을 정리할 수 있는 CLI 플러그인입니다.
+Monitor and manage background Claude Code sessions from the terminal. Kill sleeping, old, or high-memory sessions to save CPU and memory.
 
-Claude Code를 여러 프로젝트에서 동시에 사용하다 보면 백그라운드 세션이 쌓여 CPU와 메모리를 차지하게 됩니다. 이 플러그인은 세션 상태를 시각적으로 보여주고, Sleeping/오래된/고메모리 세션을 선택적으로 정리할 수 있게 해줍니다.
+[한국어](./README.ko.md)
 
-## 주요 기능
+## Overview
 
-- 실행 중인 모든 Claude Code 세션을 테이블 형태로 표시
-- 프로젝트별 세션 구분 및 상태(Working / Idle / Sleeping) 표시
-- CPU 사용률, 메모리 사용량, 시작 시간 등 상세 정보 제공
-- 선택적 세션 종료 (개별 / Sleeping 일괄 / 오래된 세션 / 고메모리 세션)
-- 세션 통계 대시보드
-- 안전한 종료 (SIGTERM 우선, 실패 시에만 SIGKILL)
-- 임계값 커스터마이징 지원
+When using Claude Code across multiple projects simultaneously, background sessions accumulate and consume CPU and memory. This plugin visually displays session status and allows you to selectively clean up Sleeping, old, or high-memory sessions.
 
-## 동작 원리
+- Display all running Claude Code sessions in a table
+- Per-project session grouping with status (Working / Idle / Sleeping)
+- Detailed info: CPU usage, memory, start time
+- Selective termination (individual / sleeping / old / high-memory)
+- Session statistics dashboard
+- Safe termination (SIGTERM first, SIGKILL as fallback)
+- Configurable thresholds
 
-플러그인은 `수집 → 표시 → 선택 → 실행`의 선형 파이프라인으로 동작합니다.
+## Pipeline Architecture
 
-![Claude Session Manager Pipeline](docs/claude-session-manager-pipeline.png)
+The plugin operates as a linear pipeline: `Collect → Display → Select → Execute`.
 
-### 파이프라인 상세
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as Session Manager
+    participant PS as Process Scanner
+    participant UI as Table Renderer
+    participant Kill as Terminator
 
-1. **프로세스 수집**: `ps aux` 명령으로 실행 중인 Claude 프로세스 목록을 조회합니다.
-2. **세션 정보 추출**: 각 PID에 대해 `lsof`로 작업 디렉토리(cwd)를 추출하고, CPU 사용률 기반으로 상태(Working/Idle/Sleeping)를 분류합니다.
-3. **테이블 렌더링**: 수집된 세션 정보를 CLI 테이블 형태로 사용자에게 표시합니다.
-4. **사용자 인터랙션**: Inquirer 기반 인터랙티브 메뉴에서 액션(특정 세션 종료, Sleeping 일괄 종료, 고메모리 종료, 오래된 세션 종료)을 선택합니다.
-5. **안전한 종료 실행**: `SIGTERM`을 우선 전송하고, 실패 시에만 `SIGKILL`로 강제 종료합니다.
-6. **결과 출력 및 루프**: 처리 결과를 표시하고, 사용자가 원하면 메인 메뉴로 돌아갑니다.
+    User->>CLI: /session-manager
+    CLI->>PS: Collect processes (ps aux)
+    PS-->>CLI: Claude process list
 
-## 요구 사항
+    CLI->>PS: Extract session info (lsof)
+    PS-->>CLI: PID, CPU, Memory, Project
 
-- **Node.js** 14 이상
-- **Claude Code** 2.0.0 이상
-- **macOS / Linux** (프로세스 조회에 `ps`, `lsof` 사용)
+    CLI->>CLI: Classify status (Working/Idle/Sleeping)
 
-## 설치
+    CLI->>UI: Render session table
+    UI-->>User: Display session list
 
-### GitHub에서 직접 설치
+    User->>CLI: Select action
+    CLI->>CLI: Filter sessions
+
+    CLI->>Kill: Request termination
+    Kill->>Kill: Send SIGTERM
+    alt SIGTERM fails
+        Kill->>Kill: Send SIGKILL
+    end
+    Kill-->>CLI: Termination result
+
+    CLI-->>User: Show result + return to menu
+```
+
+## Requirements
+
+- **Node.js** 14+
+- **Claude Code** 2.0.0+
+- **macOS / Linux** (uses `ps` and `lsof` for process inspection)
+
+## Installation
+
+### Install directly from GitHub
 
 ```bash
 claude plugin install https://github.com/yhyuk/claude-session-manager-plugin.git
 ```
 
-### 로컬 설치 (개발 용도)
+### Local installation (for development)
 
 ```bash
 git clone https://github.com/yhyuk/claude-session-manager-plugin.git
@@ -52,34 +76,34 @@ npm install
 claude plugin install .
 ```
 
-## 사용법
+## Usage
 
-### 세션 관리자 (메인 UI)
+### Session Manager (Main UI)
 
 ```bash
 /session-manager
-# 또는 단축 명령어
+# or shorthand
 /csm
 ```
 
-인터랙티브 메뉴가 표시되며 다음 작업을 선택할 수 있습니다:
+An interactive menu will appear with the following options:
 
-- 특정 세션 종료
-- 모든 Sleeping 세션 종료
-- 고메모리 세션 종료
-- 오래된 세션 종료
-- 새로고침
+- Terminate a specific session
+- Terminate all Sleeping sessions
+- Terminate high-memory sessions
+- Terminate old sessions
+- Refresh
 
-### 빠른 명령어
+### Quick Commands
 
-| 명령어 | 단축키 | 설명 |
-|--------|--------|------|
-| `/session-manager` | `/csm`, `/sessions` | 세션 관리자 UI 실행 |
-| `/kill-sleeping` | `/ks` | Sleeping 세션 모두 종료 |
-| `/kill-old` | `/ko` | 오래된 세션 종료 |
-| `/session-stats` | `/stats` | 세션 통계 보기 |
+| Command | Shorthand | Description |
+|---------|-----------|-------------|
+| `/session-manager` | `/csm`, `/sessions` | Launch the session manager UI |
+| `/kill-sleeping` | `/ks` | Kill all sleeping sessions |
+| `/kill-old` | `/ko` | Kill old sessions |
+| `/session-stats` | `/stats` | View session statistics |
 
-### 화면 예시
+### Screen Example
 
 ```
 +-----+-------+-----------+------+-------+---------+----------+
@@ -90,25 +114,25 @@ claude plugin install .
 | [3] | 81019 | dashboard | 0%   | 153MB | 10:27PM | Sleeping |
 +-----+-------+-----------+------+-------+---------+----------+
 
-총 3개의 세션 | 메모리 사용: 630MB
+Total 3 sessions | Memory usage: 630MB
 ```
 
-## 설정
+## Configuration
 
-임계값은 코드 상단의 `DEFAULT_CONFIG` 객체에서 관리됩니다:
+Thresholds are managed in the `DEFAULT_CONFIG` object at the top of the code:
 
 ```javascript
 const DEFAULT_CONFIG = {
   thresholds: {
-    sleepingCpu: 1,      // CPU% 미만이면 Sleeping 상태
-    workingCpu: 5,       // CPU% 초과이면 Working 상태
-    highMemoryMB: 100,   // MB 이상이면 고메모리 세션
-    oldSessionHours: 24  // 시간 이상이면 오래된 세션
+    sleepingCpu: 1,      // Below this CPU% = Sleeping
+    workingCpu: 5,       // Above this CPU% = Working
+    highMemoryMB: 100,   // At or above this MB = high-memory session
+    oldSessionHours: 24  // At or above this hours = old session
   }
 };
 ```
 
-프로그래밍 방식으로 커스터마이징할 수도 있습니다:
+You can also customize programmatically:
 
 ```javascript
 const ClaudeSessionManager = require('claude-session-manager');
@@ -122,53 +146,53 @@ const manager = new ClaudeSessionManager({
 });
 ```
 
-### 세션 상태 기준
+### Session Status Criteria
 
-| 상태 | CPU 사용률 | 의미 |
-|------|-----------|------|
-| **Working** | > `workingCpu` (기본 5%) | 활발히 작업 중 |
-| **Idle** | `sleepingCpu` ~ `workingCpu` (기본 1%~5%) | 대기 상태 |
-| **Sleeping** | < `sleepingCpu` (기본 1%) | 휴면 상태 (정리 대상) |
+| Status | CPU Usage | Meaning |
+|--------|-----------|---------|
+| **Working** | > `workingCpu` (default 5%) | Actively processing |
+| **Idle** | `sleepingCpu` ~ `workingCpu` (default 1%~5%) | Waiting / standby |
+| **Sleeping** | < `sleepingCpu` (default 1%) | Dormant (cleanup candidate) |
 
-## 프로젝트 구조
+## Project Structure
 
 ```
 claude-session-manager-plugin/
 ├── src/
-│   └── index.js          # 메인 세션 관리 로직
-├── plugin.json            # Claude Code 플러그인 메타데이터
+│   └── index.js          # Main session management logic
+├── plugin.json            # Claude Code plugin metadata
 ├── package.json
-├── install.sh             # 설치 스크립트
+├── install.sh             # Installation script
 ├── LICENSE
 └── README.md
 ```
 
-## 안전 기능
+## Safety Features
 
-- 모든 종료 작업 전 확인 프롬프트 표시
-- SIGTERM(안전한 종료)을 우선 사용하고, 실패 시에만 SIGKILL 적용
-- 현재 작업 중인(Working) 세션은 자동 정리 대상에서 제외
+- Confirmation prompt shown before all termination actions
+- SIGTERM (graceful shutdown) is used first; SIGKILL is only applied on failure
+- Sessions currently in Working status are excluded from automatic cleanup
 
-## 문제 해결
+## Troubleshooting
 
-### 세션이 표시되지 않는 경우
+### Sessions not appearing
 
-프로세스 조회 권한이 필요할 수 있습니다:
+Process inspection may require elevated permissions:
 
 ```bash
 sudo claude /session-manager
 ```
 
-### 플러그인이 인식되지 않는 경우
+### Plugin not recognized
 
 ```bash
-claude plugin list    # 설치된 플러그인 확인
-claude plugin reload  # 플러그인 다시 로드
+claude plugin list    # Check installed plugins
+claude plugin reload  # Reload plugins
 ```
 
-### 세션 종료가 안 되는 경우
+### Session termination fails
 
-일부 프로세스는 루트 권한이 필요할 수 있습니다. `sudo`로 재시도하거나, 터미널에서 직접 `kill -9 <PID>`를 실행해주세요.
+Some processes may require root privileges. Retry with `sudo`, or run `kill -9 <PID>` directly in the terminal.
 
 ## License
 
