@@ -2,7 +2,7 @@
 
 백그라운드에서 실행 중인 Claude Code 세션을 한눈에 모니터링하고, 불필요한 세션을 정리할 수 있는 CLI 플러그인입니다.
 
-Claude Code를 여러 프로젝트에서 동시에 사용하다 보면 백그라운드 세션이 쌓여 메모리를 차지하게 됩니다. 이 플러그인은 세션 상태를 시각적으로 보여주고, Sleeping/오래된/고메모리 세션을 선택적으로 정리할 수 있게 해줍니다.
+Claude Code를 여러 프로젝트에서 동시에 사용하다 보면 백그라운드 세션이 쌓여 CPU와 메모리를 차지하게 됩니다. 이 플러그인은 세션 상태를 시각적으로 보여주고, Sleeping/오래된/고메모리 세션을 선택적으로 정리할 수 있게 해줍니다.
 
 ## 주요 기능
 
@@ -12,12 +12,13 @@ Claude Code를 여러 프로젝트에서 동시에 사용하다 보면 백그라
 - 선택적 세션 종료 (개별 / Sleeping 일괄 / 오래된 세션 / 고메모리 세션)
 - 세션 통계 대시보드
 - 안전한 종료 (SIGTERM 우선, 실패 시에만 SIGKILL)
+- 임계값 커스터마이징 지원
 
 ## 요구 사항
 
 - **Node.js** 14 이상
 - **Claude Code** 2.0.0 이상
-- **macOS** (프로세스 조회에 `ps`, `lsof` 사용)
+- **macOS / Linux** (프로세스 조회에 `ps`, `lsof` 사용)
 
 ## 설치
 
@@ -50,8 +51,8 @@ claude plugin install .
 
 - 특정 세션 종료
 - 모든 Sleeping 세션 종료
-- 메모리 100MB 이상 세션 종료
-- 24시간 이상 오래된 세션 종료
+- 고메모리 세션 종료
+- 오래된 세션 종료
 - 새로고침
 
 ### 빠른 명령어
@@ -59,41 +60,60 @@ claude plugin install .
 | 명령어 | 단축키 | 설명 |
 |--------|--------|------|
 | `/session-manager` | `/csm`, `/sessions` | 세션 관리자 UI 실행 |
-| `/kill-sleeping` | `/ks` | Sleeping 세션(CPU < 1%) 모두 종료 |
-| `/kill-old` | `/ko` | 24시간 이상 경과한 세션 종료 |
+| `/kill-sleeping` | `/ks` | Sleeping 세션 모두 종료 |
+| `/kill-old` | `/ko` | 오래된 세션 종료 |
 | `/session-stats` | `/stats` | 세션 통계 보기 |
 
 ### 화면 예시
 
 ```
-+-----+-------+----------+------+-------+---------+----------+
-| No. | PID   | Project  | CPU% | MEM   | Start   | Status   |
-+-----+-------+----------+------+-------+---------+----------+
-| [1] | 59294 | ~        | 11%  | 388MB | 5:15AM  | Working  |
-| [2] | 95274 | medicrm  | 0.3% | 89MB  | 11:23PM | Sleeping |
-| [3] | 81019 | archery  | 0%   | 153MB | 10:27PM | Sleeping |
-+-----+-------+----------+------+-------+---------+----------+
++-----+-------+-----------+------+-------+---------+----------+
+| No. | PID   | Project   | CPU% | MEM   | Start   | Status   |
++-----+-------+-----------+------+-------+---------+----------+
+| [1] | 59294 | my-app    | 11%  | 388MB | 5:15AM  | Working  |
+| [2] | 95274 | api-server| 0.3% | 89MB  | 11:23PM | Sleeping |
+| [3] | 81019 | dashboard | 0%   | 153MB | 10:27PM | Sleeping |
++-----+-------+-----------+------+-------+---------+----------+
 
 총 3개의 세션 | 메모리 사용: 630MB
+```
+
+## 설정
+
+임계값은 코드 상단의 `DEFAULT_CONFIG` 객체에서 관리됩니다:
+
+```javascript
+const DEFAULT_CONFIG = {
+  thresholds: {
+    sleepingCpu: 1,      // CPU% 미만이면 Sleeping 상태
+    workingCpu: 5,       // CPU% 초과이면 Working 상태
+    highMemoryMB: 100,   // MB 이상이면 고메모리 세션
+    oldSessionHours: 24  // 시간 이상이면 오래된 세션
+  }
+};
+```
+
+프로그래밍 방식으로 커스터마이징할 수도 있습니다:
+
+```javascript
+const ClaudeSessionManager = require('claude-session-manager');
+
+const manager = new ClaudeSessionManager({
+  thresholds: {
+    sleepingCpu: 2,
+    highMemoryMB: 200,
+    oldSessionHours: 12
+  }
+});
 ```
 
 ### 세션 상태 기준
 
 | 상태 | CPU 사용률 | 의미 |
 |------|-----------|------|
-| **Working** | > 5% | 활발히 작업 중 |
-| **Idle** | 1% ~ 5% | 대기 상태 |
-| **Sleeping** | < 1% | 휴면 상태 (정리 대상) |
-
-## 기본 동작 값
-
-현재 아래 값들은 코드 내에 하드코딩되어 있습니다.
-
-| 항목 | 기본값 | 설명 |
-|------|--------|------|
-| 고메모리 세션 기준 | `100 MB` | 이 값 이상의 세션을 고메모리로 분류 |
-| 오래된 세션 기준 | `24시간` | 이 시간 이상 경과한 세션을 오래된 세션으로 분류 |
-| Sleeping 기준 CPU | `< 1%` | CPU 사용률이 이 값 미만이면 Sleeping 상태 |
+| **Working** | > `workingCpu` (기본 5%) | 활발히 작업 중 |
+| **Idle** | `sleepingCpu` ~ `workingCpu` (기본 1%~5%) | 대기 상태 |
+| **Sleeping** | < `sleepingCpu` (기본 1%) | 휴면 상태 (정리 대상) |
 
 ## 프로젝트 구조
 
@@ -103,6 +123,8 @@ claude-session-manager-plugin/
 │   └── index.js          # 메인 세션 관리 로직
 ├── plugin.json            # Claude Code 플러그인 메타데이터
 ├── package.json
+├── install.sh             # 설치 스크립트
+├── LICENSE
 └── README.md
 ```
 
@@ -132,3 +154,7 @@ claude plugin reload  # 플러그인 다시 로드
 ### 세션 종료가 안 되는 경우
 
 일부 프로세스는 루트 권한이 필요할 수 있습니다. `sudo`로 재시도하거나, 터미널에서 직접 `kill -9 <PID>`를 실행해주세요.
+
+## License
+
+[MIT](LICENSE)

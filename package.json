@@ -1,20 +1,38 @@
 {
   "name": "claude-session-manager",
-  "version": "1.0.0",
-  "description": "Manage Claude Code background sessions easily",
+  "version": "1.1.0",
+  "description": "Monitor and clean up Claude Code background sessions - view status, kill sleeping/old/high-memory sessions",
   "main": "src/index.js",
+  "bin": {
+    "claude-session-manager": "src/index.js"
+  },
   "scripts": {
+    "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "claude",
+    "claude-code",
     "session",
     "manager",
     "process",
-    "cleanup"
+    "cleanup",
+    "cli",
+    "plugin"
   ],
-  "author": "Your Name",
+  "author": {
+    "name": "yhyuk",
+    "url": "https://github.com/yhyuk"
+  },
+  "homepage": "https://github.com/yhyuk/claude-session-manager-plugin",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yhyuk/claude-session-manager-plugin.git"
+  },
   "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "dependencies": {
     "chalk": "^5.3.0",
     "inquirer": "^9.2.12",

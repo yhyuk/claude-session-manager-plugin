@@ -7,10 +7,22 @@ const Table = require('cli-table3');
 const os = require('os');
 const path = require('path');
 
+const DEFAULT_CONFIG = {
+  thresholds: {
+    sleepingCpu: 1,      // CPU% 미만이면 Sleeping
+    workingCpu: 5,       // CPU% 초과이면 Working
+    highMemoryMB: 100,   // MB 이상이면 고메모리
+    oldSessionHours: 24  // 시간 이상이면 오래된 세션
+  }
+};
+
 class ClaudeSessionManager {
-  constructor() {
+  constructor(config = {}) {
     this.sessions = [];
     this.totalMemory = 0;
+    this.config = {
+      thresholds: { ...DEFAULT_CONFIG.thresholds, ...config.thresholds }
+    };
   }
 
   // Claude 프로세스 목록 가져오기
@@ -43,12 +55,13 @@ class ClaudeSessionManager {
             const project = this.getProjectName(cwd);
 
             // 상태 결정
+            const { sleepingCpu, workingCpu } = this.config.thresholds;
             let status = 'Sleeping';
             let statusColor = chalk.gray;
-            if (cpu > 5) {
+            if (cpu > workingCpu) {
               status = 'Working';
               statusColor = chalk.green;
-            } else if (cpu > 1) {
+            } else if (cpu > sleepingCpu) {
               status = 'Idle';
               statusColor = chalk.yellow;
             }
@@ -89,24 +102,10 @@ class ClaudeSessionManager {
 
   // 프로젝트 이름 추출
   getProjectName(cwd) {
-    if (cwd.includes('/hmp-')) {
-      const match = cwd.match(/hmp-[^/]*/);
-      return match ? match[0] : 'hmp';
-    } else if (cwd.includes('/medicrm')) {
-      return 'medicrm';
-    } else if (cwd.includes('/archery')) {
-      return 'archery';
-    } else if (cwd.includes('/doguri')) {
-      return 'doguri';
-    } else if (cwd.includes('/oasis')) {
-      return 'oasis';
-    } else if (cwd.includes('/gnun')) {
-      return 'gnun';
-    } else if (cwd === os.homedir()) {
+    if (cwd === os.homedir()) {
       return '~';
-    } else {
-      return path.basename(cwd) || '/';
     }
+    return path.basename(cwd) || '/';
   }
 
   // 세션 테이블 표시
@@ -134,12 +133,13 @@ class ClaudeSessionManager {
     });
 
     sessions.forEach(session => {
-      const cpuColor = session.cpu > 10 ? chalk.red :
-                      session.cpu > 5 ? chalk.yellow :
+      const { workingCpu, highMemoryMB } = this.config.thresholds;
+      const cpuColor = session.cpu > workingCpu * 2 ? chalk.red :
+                      session.cpu > workingCpu ? chalk.yellow :
                       chalk.gray;
 
-      const memColor = session.memMB > 100 ? chalk.red :
-                       session.memMB > 50 ? chalk.yellow :
+      const memColor = session.memMB > highMemoryMB ? chalk.red :
+                       session.memMB > highMemoryMB / 2 ? chalk.yellow :
                        chalk.gray;
 
       const projectColor = session.project === '~' ? chalk.dim : chalk.cyan;
@@ -185,7 +185,7 @@ class ClaudeSessionManager {
 
   // Sleeping 세션 종료
   async killSleepingSessions(sessions) {
-    const sleepingSessions = sessions.filter(s => s.cpu < 1);
+    const sleepingSessions = sessions.filter(s => s.cpu < this.config.thresholds.sleepingCpu);
 
     if (sleepingSessions.length === 0) {
       console.log(chalk.yellow('종료할 Sleeping 세션이 없습니다.'));
@@ -222,7 +222,7 @@ class ClaudeSessionManager {
         const diff = now - startTime.getTime();
         const hours = diff / (1000 * 60 * 60);
 
-        if (hours > 24) {
+        if (hours > this.config.thresholds.oldSessionHours) {
           oldSessions.push({ ...session, hours: Math.round(hours) });
         }
       } catch (e) {
@@ -231,7 +231,7 @@ class ClaudeSessionManager {
     }
 
     if (oldSessions.length === 0) {
-      console.log(chalk.yellow('24시간 이상 된 세션이 없습니다.'));
+      console.log(chalk.yellow(`${this.config.thresholds.oldSessionHours}시간 이상 된 세션이 없습니다.`));
       return;
     }
 
@@ -267,8 +267,8 @@ class ClaudeSessionManager {
     const choices = [
       { name: '특정 세션 종료', value: 'kill_specific' },
       { name: '모든 Sleeping 세션 종료', value: 'kill_sleeping' },
-      { name: '메모리 100MB 이상 세션 종료', value: 'kill_high_memory' },
-      { name: '24시간 이상 오래된 세션 종료', value: 'kill_old' },
+      { name: `메모리 ${this.config.thresholds.highMemoryMB}MB 이상 세션 종료`, value: 'kill_high_memory' },
+      { name: `${this.config.thresholds.oldSessionHours}시간 이상 오래된 세션 종료`, value: 'kill_old' },
       new inquirer.Separator(),
       { name: '새로고침', value: 'refresh' },
       { name: '종료', value: 'quit' }
@@ -336,10 +336,10 @@ class ClaudeSessionManager {
 
   // 높은 메모리 세션 종료
   async killHighMemorySessions() {
-    const highMemSessions = this.sessions.filter(s => s.memMB > 100);
+    const highMemSessions = this.sessions.filter(s => s.memMB > this.config.thresholds.highMemoryMB);
 
     if (highMemSessions.length === 0) {
-      console.log(chalk.yellow('메모리 100MB 이상인 세션이 없습니다.'));
+      console.log(chalk.yellow(`메모리 ${this.config.thresholds.highMemoryMB}MB 이상인 세션이 없습니다.`));
       return;
     }
 
