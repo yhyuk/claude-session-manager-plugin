@@ -16,6 +16,8 @@ When using Claude Code across multiple projects simultaneously, background sessi
 - Safe termination (SIGTERM first, SIGKILL as fallback)
 - Configurable thresholds
 
+![Preview](./assets/preview.png)
+
 ## Pipeline Architecture
 
 The plugin operates as a linear pipeline: `Collect → Display → Select → Execute`.
@@ -102,20 +104,6 @@ An interactive menu will appear with the following options:
 | `/kill-sleeping` | `/ks` | Kill all sleeping sessions |
 | `/kill-old` | `/ko` | Kill old sessions |
 | `/session-stats` | `/stats` | View session statistics |
-
-### Screen Example
-
-```
-+-----+-------+-----------+------+-------+---------+----------+
-| No. | PID   | Project   | CPU% | MEM   | Start   | Status   |
-+-----+-------+-----------+------+-------+---------+----------+
-| [1] | 59294 | my-app    | 11%  | 388MB | 5:15AM  | Working  |
-| [2] | 95274 | api-server| 0.3% | 89MB  | 11:23PM | Sleeping |
-| [3] | 81019 | dashboard | 0%   | 153MB | 10:27PM | Sleeping |
-+-----+-------+-----------+------+-------+---------+----------+
-
-Total 3 sessions | Memory usage: 630MB
-```
 
 ## Configuration
 
