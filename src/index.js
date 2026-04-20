@@ -27,6 +27,7 @@ class ClaudeSessionManager {
 
   // Claude 프로세스 목록 가져오기
   async getClaudeSessions() {
+    this.totalMemory = 0; // US-001: 매 호출마다 초기화
     return new Promise((resolve, reject) => {
       exec("ps aux | grep -E '/claude.*--resume|^.*claude$' | grep -v grep | grep -v 'claude_session_manager'",
         (error, stdout, stderr) => {
@@ -42,8 +43,10 @@ class ClaudeSessionManager {
             const cpu = parseFloat(parts[2]);
             const mem = parseFloat(parts[3]);
             const rss = parseInt(parts[5]);
-            const startTime = parts[8];
             const memMB = Math.round(rss / 1024);
+
+            // US-003: 실제 프로세스 시작 시각 조회
+            const startTime = this.getProcessStartTime(pid);
 
             // 세션 ID 추출
             const sessionMatch = line.match(/resume ([a-f0-9-]+)/);
@@ -89,6 +92,16 @@ class ClaudeSessionManager {
     });
   }
 
+  // US-003: 프로세스 실제 시작 시각 조회
+  getProcessStartTime(pid) {
+    try {
+      const result = execSync(`ps -p ${pid} -o lstart= 2>/dev/null`, { encoding: 'utf8' });
+      return result.trim() || '-';
+    } catch (e) {
+      return '-';
+    }
+  }
+
   // 프로세스 작업 디렉토리 가져오기
   getWorkingDirectory(pid) {
     try {
@@ -112,7 +125,7 @@ class ClaudeSessionManager {
   displaySessions(sessions) {
     console.clear();
     console.log(chalk.cyan('╔════════════════════════════════════════════════════════════════════════╗'));
-    console.log(chalk.cyan('║') + chalk.bold('    Claude Code Session Manager v1.0                                   ') + chalk.cyan('║'));
+    console.log(chalk.cyan('║') + chalk.bold('    Claude Code Session Manager v1.1                                   ') + chalk.cyan('║'));
     console.log(chalk.cyan('╚════════════════════════════════════════════════════════════════════════╝'));
     console.log();
 
@@ -185,7 +198,7 @@ class ClaudeSessionManager {
 
   // Sleeping 세션 종료
   async killSleepingSessions(sessions) {
-    const sleepingSessions = sessions.filter(s => s.cpu < this.config.thresholds.sleepingCpu);
+    const sleepingSessions = sessions.filter(s => s.status === 'Sleeping');
 
     if (sleepingSessions.length === 0) {
       console.log(chalk.yellow('종료할 Sleeping 세션이 없습니다.'));
@@ -217,8 +230,8 @@ class ClaudeSessionManager {
 
     for (const session of sessions) {
       try {
-        const result = execSync(`ps -p ${session.pid} -o lstart=`, { encoding: 'utf8' });
-        const startTime = new Date(result.trim());
+        const startTime = new Date(session.startTime);
+        if (isNaN(startTime.getTime())) continue;
         const diff = now - startTime.getTime();
         const hours = diff / (1000 * 60 * 60);
 
@@ -226,7 +239,7 @@ class ClaudeSessionManager {
           oldSessions.push({ ...session, hours: Math.round(hours) });
         }
       } catch (e) {
-        // 프로세스가 없거나 오류 발생
+        console.warn(chalk.dim(`PID ${session.pid} 시작 시각 파싱 실패`));
       }
     }
 
@@ -254,64 +267,70 @@ class ClaudeSessionManager {
     }
   }
 
-  // 메인 메뉴
+  // US-005: 메인 메뉴 (재귀 → while 루프)
   async showMainMenu() {
-    this.sessions = await this.getClaudeSessions();
-    this.displaySessions(this.sessions);
+    let running = true;
 
-    if (this.sessions.length === 0) {
-      console.log(chalk.yellow('실행 중인 Claude 세션이 없습니다.'));
-      return;
-    }
+    while (running) {
+      this.sessions = await this.getClaudeSessions();
+      this.displaySessions(this.sessions);
 
-    const choices = [
-      { name: '특정 세션 종료', value: 'kill_specific' },
-      { name: '모든 Sleeping 세션 종료', value: 'kill_sleeping' },
-      { name: `메모리 ${this.config.thresholds.highMemoryMB}MB 이상 세션 종료`, value: 'kill_high_memory' },
-      { name: `${this.config.thresholds.oldSessionHours}시간 이상 오래된 세션 종료`, value: 'kill_old' },
-      new inquirer.Separator(),
-      { name: '새로고침', value: 'refresh' },
-      { name: '종료', value: 'quit' }
-    ];
-
-    const { action } = await inquirer.prompt([{
-      type: 'list',
-      name: 'action',
-      message: '선택:',
-      choices
-    }]);
-
-    switch (action) {
-      case 'kill_specific':
-        await this.killSpecificSession();
-        break;
-      case 'kill_sleeping':
-        await this.killSleepingSessions(this.sessions);
-        break;
-      case 'kill_high_memory':
-        await this.killHighMemorySessions();
-        break;
-      case 'kill_old':
-        await this.killOldSessions(this.sessions);
-        break;
-      case 'refresh':
-        await this.showMainMenu();
+      if (this.sessions.length === 0) {
+        console.log(chalk.yellow('실행 중인 Claude 세션이 없습니다.'));
         return;
-      case 'quit':
+      }
+
+      const choices = [
+        { name: '특정 세션 종료', value: 'kill_specific' },
+        { name: '모든 Sleeping 세션 종료', value: 'kill_sleeping' },
+        { name: `메모리 ${this.config.thresholds.highMemoryMB}MB 이상 세션 종료`, value: 'kill_high_memory' },
+        { name: `${this.config.thresholds.oldSessionHours}시간 이상 오래된 세션 종료`, value: 'kill_old' },
+        new inquirer.Separator(),
+        { name: '새로고침', value: 'refresh' },
+        { name: '종료', value: 'quit' }
+      ];
+
+      const { action } = await inquirer.prompt([{
+        type: 'list',
+        name: 'action',
+        message: '선택:',
+        choices
+      }]);
+
+      if (action === 'quit') {
         console.log(chalk.green('프로그램을 종료합니다.'));
         process.exit(0);
-    }
+      }
 
-    // 작업 후 메뉴로 돌아가기
-    const { cont } = await inquirer.prompt([{
-      type: 'confirm',
-      name: 'cont',
-      message: '계속하시겠습니까?',
-      default: true
-    }]);
+      if (action === 'refresh') {
+        continue;
+      }
 
-    if (cont) {
-      await this.showMainMenu();
+      switch (action) {
+        case 'kill_specific':
+          await this.killSpecificSession();
+          break;
+        case 'kill_sleeping':
+          await this.killSleepingSessions(this.sessions);
+          break;
+        case 'kill_high_memory':
+          await this.killHighMemorySessions();
+          break;
+        case 'kill_old':
+          await this.killOldSessions(this.sessions);
+          break;
+      }
+
+      const { cont } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'cont',
+        message: '계속하시겠습니까?',
+        default: true
+      }]);
+
+      if (!cont) {
+        running = false;
+      }
     }
   }
 
@@ -367,7 +386,7 @@ class ClaudeSessionManager {
     this.sessions = await this.getClaudeSessions();
 
     console.clear();
-    console.log(chalk.cyan.bold('\n📊 Claude Code 세션 통계\n'));
+    console.log(chalk.cyan.bold('\n Claude Code 세션 통계\n'));
 
     const stats = {
       total: this.sessions.length,
@@ -398,19 +417,20 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
+  // US-002: 각 case를 블록으로 분리하여 const 스코프 오류 방지
   switch (command) {
     case 'kill-sleeping':
-    case 'ks':
+    case 'ks': {
       const sessions = await manager.getClaudeSessions();
       await manager.killSleepingSessions(sessions);
       break;
-
+    }
     case 'kill-old':
-    case 'ko':
+    case 'ko': {
       const oldSessions = await manager.getClaudeSessions();
       await manager.killOldSessions(oldSessions);
       break;
-
+    }
     case 'stats':
     case 'session-stats':
       await manager.showStats();
@@ -425,6 +445,12 @@ async function main() {
 process.on('uncaughtException', (err) => {
   console.error(chalk.red('오류 발생:'), err.message);
   process.exit(1);
+});
+
+// Ctrl+C / Ctrl+D 정상 종료
+process.on('SIGINT', () => {
+  console.log(chalk.green('\n프로그램을 종료합니다.'));
+  process.exit(0);
 });
 
 // 실행

@@ -4,7 +4,9 @@
       "mcp__plugin_oh-my-claudecode_t__state_list_active",
       "mcp__plugin_oh-my-claudecode_t__state_clear",
       "Bash(mkdir -p /Users/imform-mm-2101/workspace/PERSONAL/claude-session-manager-plugin/assets)",
-      "Bash(cp \"/Users/imform-mm-2101/Desktop/스크린샷 2026-04-15 13.51.18.png\" /Users/imform-mm-2101/workspace/PERSONAL/claude-session-manager-plugin/assets/preview.png)"
+      "Bash(cp \"/Users/imform-mm-2101/Desktop/스크린샷 2026-04-15 13.51.18.png\" /Users/imform-mm-2101/workspace/PERSONAL/claude-session-manager-plugin/assets/preview.png)",
+      "Bash(node --check src/index.js)",
+      "Bash(node *)"
     ]
   }
 }
