@@ -1,6 +1,6 @@
 {
   "name": "claude-session-manager",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Monitor and clean up Claude Code background sessions - view status, kill sleeping/old/high-memory sessions",
   "main": "src/index.js",
   "bin": {
