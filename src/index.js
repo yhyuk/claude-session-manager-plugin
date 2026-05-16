@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 
 const { exec, execSync } = require('child_process');
-const chalk = require('chalk');
-const inquirer = require('inquirer');
+const inquirer = require('inquirer').default;
+const { Separator } = inquirer;
+
+const c = {
+  red:    s => `\x1b[31m${s}\x1b[0m`,
+  green:  s => `\x1b[32m${s}\x1b[0m`,
+  yellow: s => `\x1b[33m${s}\x1b[0m`,
+  cyan:   s => `\x1b[36m${s}\x1b[0m`,
+  gray:   s => `\x1b[90m${s}\x1b[0m`,
+  dim:    s => `\x1b[2m${s}\x1b[0m`,
+  bold:   s => `\x1b[1m${s}\x1b[0m`,
+};
 const Table = require('cli-table3');
 const os = require('os');
 const path = require('path');
@@ -60,13 +70,13 @@ class ClaudeSessionManager {
             // 상태 결정
             const { sleepingCpu, workingCpu } = this.config.thresholds;
             let status = 'Sleeping';
-            let statusColor = chalk.gray;
+            let statusColor = c.gray;
             if (cpu > workingCpu) {
               status = 'Working';
-              statusColor = chalk.green;
+              statusColor = c.green;
             } else if (cpu > sleepingCpu) {
               status = 'Idle';
-              statusColor = chalk.yellow;
+              statusColor = c.yellow;
             }
 
             this.totalMemory += memMB;
@@ -124,20 +134,20 @@ class ClaudeSessionManager {
   // 세션 테이블 표시
   displaySessions(sessions) {
     console.clear();
-    console.log(chalk.cyan('╔════════════════════════════════════════════════════════════════════════╗'));
-    console.log(chalk.cyan('║') + chalk.bold('    Claude Code Session Manager v1.1                                   ') + chalk.cyan('║'));
-    console.log(chalk.cyan('╚════════════════════════════════════════════════════════════════════════╝'));
+    console.log(c.cyan('╔════════════════════════════════════════════════════════════════════════╗'));
+    console.log(c.cyan('║') + c.bold('    Claude Code Session Manager v1.1                                   ') + c.cyan('║'));
+    console.log(c.cyan('╚════════════════════════════════════════════════════════════════════════╝'));
     console.log();
 
     const table = new Table({
       head: [
-        chalk.bold('No.'),
-        chalk.bold('PID'),
-        chalk.bold('Project'),
-        chalk.bold('CPU%'),
-        chalk.bold('MEM'),
-        chalk.bold('Start'),
-        chalk.bold('Status')
+        c.bold('No.'),
+        c.bold('PID'),
+        c.bold('Project'),
+        c.bold('CPU%'),
+        c.bold('MEM'),
+        c.bold('Start'),
+        c.bold('Status')
       ],
       style: {
         head: [],
@@ -147,15 +157,15 @@ class ClaudeSessionManager {
 
     sessions.forEach(session => {
       const { workingCpu, highMemoryMB } = this.config.thresholds;
-      const cpuColor = session.cpu > workingCpu * 2 ? chalk.red :
-                      session.cpu > workingCpu ? chalk.yellow :
-                      chalk.gray;
+      const cpuColor = session.cpu > workingCpu * 2 ? c.red :
+                      session.cpu > workingCpu ? c.yellow :
+                      c.gray;
 
-      const memColor = session.memMB > highMemoryMB ? chalk.red :
-                       session.memMB > highMemoryMB / 2 ? chalk.yellow :
-                       chalk.gray;
+      const memColor = session.memMB > highMemoryMB ? c.red :
+                       session.memMB > highMemoryMB / 2 ? c.yellow :
+                       c.gray;
 
-      const projectColor = session.project === '~' ? chalk.dim : chalk.cyan;
+      const projectColor = session.project === '~' ? c.dim : c.cyan;
 
       table.push([
         `[${session.index}]`,
@@ -170,7 +180,7 @@ class ClaudeSessionManager {
 
     console.log(table.toString());
     console.log();
-    console.log(`총 ${chalk.bold(sessions.length)}개의 세션 | 메모리 사용: ${chalk.bold(this.totalMemory + 'MB')}`);
+    console.log(`총 ${c.bold(sessions.length)}개의 세션 | 메모리 사용: ${c.bold(this.totalMemory + 'MB')}`);
     console.log();
   }
 
@@ -179,15 +189,15 @@ class ClaudeSessionManager {
     return new Promise((resolve) => {
       exec(`kill -TERM ${pid}`, (error) => {
         if (!error) {
-          console.log(chalk.green(`✓ PID ${pid} (${chalk.cyan(project)}) 종료됨`));
+          console.log(c.green(`✓ PID ${pid} (${c.cyan(project)}) 종료됨`));
           resolve(true);
         } else {
           exec(`kill -KILL ${pid}`, (error2) => {
             if (!error2) {
-              console.log(chalk.green(`✓ PID ${pid} (${chalk.cyan(project)}) 강제 종료됨`));
+              console.log(c.green(`✓ PID ${pid} (${c.cyan(project)}) 강제 종료됨`));
               resolve(true);
             } else {
-              console.log(chalk.red(`✗ PID ${pid} 종료 실패`));
+              console.log(c.red(`✗ PID ${pid} 종료 실패`));
               resolve(false);
             }
           });
@@ -201,7 +211,7 @@ class ClaudeSessionManager {
     const sleepingSessions = sessions.filter(s => s.status === 'Sleeping');
 
     if (sleepingSessions.length === 0) {
-      console.log(chalk.yellow('종료할 Sleeping 세션이 없습니다.'));
+      console.log(c.yellow('종료할 Sleeping 세션이 없습니다.'));
       return;
     }
 
@@ -219,7 +229,7 @@ class ClaudeSessionManager {
           killed++;
         }
       }
-      console.log(chalk.green(`\n총 ${killed}개의 세션이 종료되었습니다.`));
+      console.log(c.green(`\n총 ${killed}개의 세션이 종료되었습니다.`));
     }
   }
 
@@ -239,12 +249,12 @@ class ClaudeSessionManager {
           oldSessions.push({ ...session, hours: Math.round(hours) });
         }
       } catch (e) {
-        console.warn(chalk.dim(`PID ${session.pid} 시작 시각 파싱 실패`));
+        console.warn(c.dim(`PID ${session.pid} 시작 시각 파싱 실패`));
       }
     }
 
     if (oldSessions.length === 0) {
-      console.log(chalk.yellow(`${this.config.thresholds.oldSessionHours}시간 이상 된 세션이 없습니다.`));
+      console.log(c.yellow(`${this.config.thresholds.oldSessionHours}시간 이상 된 세션이 없습니다.`));
       return;
     }
 
@@ -258,12 +268,12 @@ class ClaudeSessionManager {
     if (confirm) {
       let killed = 0;
       for (const session of oldSessions) {
-        console.log(chalk.dim(`${session.hours}시간 경과: ${session.project}`));
+        console.log(c.dim(`${session.hours}시간 경과: ${session.project}`));
         if (await this.killSession(session.pid, session.project)) {
           killed++;
         }
       }
-      console.log(chalk.green(`\n총 ${killed}개의 세션이 종료되었습니다.`));
+      console.log(c.green(`\n총 ${killed}개의 세션이 종료되었습니다.`));
     }
   }
 
@@ -276,7 +286,7 @@ class ClaudeSessionManager {
       this.displaySessions(this.sessions);
 
       if (this.sessions.length === 0) {
-        console.log(chalk.yellow('실행 중인 Claude 세션이 없습니다.'));
+        console.log(c.yellow('실행 중인 Claude 세션이 없습니다.'));
         return;
       }
 
@@ -285,7 +295,7 @@ class ClaudeSessionManager {
         { name: '모든 Sleeping 세션 종료', value: 'kill_sleeping' },
         { name: `메모리 ${this.config.thresholds.highMemoryMB}MB 이상 세션 종료`, value: 'kill_high_memory' },
         { name: `${this.config.thresholds.oldSessionHours}시간 이상 오래된 세션 종료`, value: 'kill_old' },
-        new inquirer.Separator(),
+        new Separator(),
         { name: '새로고침', value: 'refresh' },
         { name: '종료', value: 'quit' }
       ];
@@ -298,7 +308,7 @@ class ClaudeSessionManager {
       }]);
 
       if (action === 'quit') {
-        console.log(chalk.green('프로그램을 종료합니다.'));
+        console.log(c.green('프로그램을 종료합니다.'));
         process.exit(0);
       }
 
@@ -337,7 +347,7 @@ class ClaudeSessionManager {
   // 특정 세션 종료
   async killSpecificSession() {
     const choices = this.sessions.map(s => ({
-      name: `[${s.pid}] ${chalk.cyan(s.project)} - ${s.statusColor(s.status)} (${s.cpu}% CPU, ${s.memMB}MB)`,
+      name: `[${s.pid}] ${c.cyan(s.project)} - ${s.statusColor(s.status)} (${s.cpu}% CPU, ${s.memMB}MB)`,
       value: s
     }));
 
@@ -345,7 +355,7 @@ class ClaudeSessionManager {
       type: 'list',
       name: 'session',
       message: '종료할 세션 선택:',
-      choices: [...choices, new inquirer.Separator(), { name: '취소', value: null }]
+      choices: [...choices, new Separator(), { name: '취소', value: null }]
     }]);
 
     if (session) {
@@ -358,7 +368,7 @@ class ClaudeSessionManager {
     const highMemSessions = this.sessions.filter(s => s.memMB > this.config.thresholds.highMemoryMB);
 
     if (highMemSessions.length === 0) {
-      console.log(chalk.yellow(`메모리 ${this.config.thresholds.highMemoryMB}MB 이상인 세션이 없습니다.`));
+      console.log(c.yellow(`메모리 ${this.config.thresholds.highMemoryMB}MB 이상인 세션이 없습니다.`));
       return;
     }
 
@@ -372,12 +382,12 @@ class ClaudeSessionManager {
     if (confirm) {
       let killed = 0;
       for (const session of highMemSessions) {
-        console.log(chalk.dim(`${session.memMB}MB: ${session.project}`));
+        console.log(c.dim(`${session.memMB}MB: ${session.project}`));
         if (await this.killSession(session.pid, session.project)) {
           killed++;
         }
       }
-      console.log(chalk.green(`\n총 ${killed}개의 세션이 종료되었습니다.`));
+      console.log(c.green(`\n총 ${killed}개의 세션이 종료되었습니다.`));
     }
   }
 
@@ -386,7 +396,7 @@ class ClaudeSessionManager {
     this.sessions = await this.getClaudeSessions();
 
     console.clear();
-    console.log(chalk.cyan.bold('\n Claude Code 세션 통계\n'));
+    console.log(c.cyan(c.bold('\n Claude Code 세션 통계\n')));
 
     const stats = {
       total: this.sessions.length,
@@ -399,11 +409,11 @@ class ClaudeSessionManager {
 
     const table = new Table();
     table.push(
-      ['총 세션 수', chalk.bold(stats.total)],
-      ['Working', chalk.green(stats.working)],
-      ['Idle', chalk.yellow(stats.idle)],
-      ['Sleeping', chalk.gray(stats.sleeping)],
-      ['총 메모리', chalk.bold(stats.totalMemory + 'MB')],
+      ['총 세션 수', c.bold(stats.total)],
+      ['Working', c.green(stats.working)],
+      ['Idle', c.yellow(stats.idle)],
+      ['Sleeping', c.gray(stats.sleeping)],
+      ['총 메모리', c.bold(stats.totalMemory + 'MB')],
       ['평균 메모리', stats.avgMemory + 'MB']
     );
 
@@ -443,20 +453,20 @@ async function main() {
 
 // 에러 처리
 process.on('uncaughtException', (err) => {
-  console.error(chalk.red('오류 발생:'), err.message);
+  console.error(c.red('오류 발생:'), err.message);
   process.exit(1);
 });
 
 // Ctrl+C / Ctrl+D 정상 종료
 process.on('SIGINT', () => {
-  console.log(chalk.green('\n프로그램을 종료합니다.'));
+  console.log(c.green('\n프로그램을 종료합니다.'));
   process.exit(0);
 });
 
 // 실행
 if (require.main === module) {
   main().catch(err => {
-    console.error(chalk.red('실행 오류:'), err);
+    console.error(c.red('실행 오류:'), err);
     process.exit(1);
   });
 }
